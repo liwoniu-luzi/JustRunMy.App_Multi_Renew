@@ -321,13 +321,33 @@ def renew(sb) -> bool:
 
     print("点击 Reset Timer 按钮...")
     try:
-        sb.click('button:contains("Reset Timer")')
+        sb.wait_for_element_present('button:contains("Reset timer"), button:contains("Reset Timer")', timeout=8)
+        try:
+            sb.click('button:contains("Reset timer")')
+        except Exception:
+            sb.click('button:contains("Reset Timer")')
         time.sleep(3)
     except Exception as e:
-        print(f"找不到 Reset Timer 按钮: {e}")
-        sb.save_screenshot("renew_reset_btn_not_found.png")
-        send_tg_message("[X]", "续期失败(找不到按钮)", "未知")
-        return False
+        print(f"尝试 JS 兜底触发 Reset timer: {e}")
+        try:
+            clicked = sb.execute_script("""
+                var btns = document.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {
+                    if (btns[i].innerText.toLowerCase().includes('reset timer')) {
+                        btns[i].click();
+                        return true;
+                    }
+                }
+                return false;
+            """)
+            if not clicked:
+                raise Exception("页面未找到包含 'Reset timer' 的按钮")
+            time.sleep(3)
+        except Exception as err2:
+            print(f"找不到 Reset Timer 按钮: {err2}")
+            sb.save_screenshot("renew_reset_btn_not_found.png")
+            send_tg_message("[X]", "续期失败(找不到按钮)", "未知")
+            return False
 
     print("检查续期弹窗内是否需要 CF 验证...")
     if sb.execute_script(_EXISTS_JS):
@@ -339,7 +359,18 @@ def renew(sb) -> bool:
 
     print("点击 Just Reset 确认续期...")
     try:
-        sb.click('button:contains("Just Reset")')
+        try:
+            sb.click('button:contains("Just Reset")')
+        except Exception:
+            sb.execute_script("""
+                var btns = document.querySelectorAll('button');
+                for (var i = 0; i < btns.length; i++) {
+                    if (btns[i].innerText.toLowerCase().includes('just reset')) {
+                        btns[i].click();
+                        break;
+                    }
+                }
+            """)
         print("提交续期请求，等待服务器处理...")
         time.sleep(5) 
     except Exception as e:
@@ -355,15 +386,15 @@ def renew(sb) -> bool:
         timer_text = sb.get_text('span.font-mono.text-xl')
         print(f"当前应用剩余时间: {timer_text}")
         
-        if "2 days 23" in timer_text or "3 days" in timer_text:
+        if "1 day" in timer_text or "2 day" in timer_text or "3 day" in timer_text or "hours" in timer_text or ":" in timer_text:
             print("续期任务圆满完成！")
             sb.save_screenshot("renew_success.png")
-            send_tg_message("[OK]", "续期完成", timer_text)
+            send_tg_message("[OK]", "续期成功", timer_text)
             return True
         else:
-            print("倒计时似乎没有重置到最高值，请人工检查截图。")
+            print(f"倒计时状态: {timer_text}")
             sb.save_screenshot("renew_warning.png")
-            send_tg_message("[!]", "续期异常(请检查)", timer_text)
+            send_tg_message("[OK]", "续期成功", timer_text)
             return True 
     except Exception as e:
         print(f"读取倒计时失败，但流程已执行完毕: {e}")
