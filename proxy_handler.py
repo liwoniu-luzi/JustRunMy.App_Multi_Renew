@@ -14,7 +14,7 @@ Supported protocols:
   tuic://uuid:password@host:port?sni=xxx&alpn=h3&congestion_control=bbr
   anytls://password@host:port?sni=xxx&insecure=1
 
-Output: config.json with HTTP inbound on 127.0.0.1:8080
+Output: config.json with Mixed (HTTP/SOCKS) inbound on 127.0.0.1:8080
 """
 
 import os
@@ -141,7 +141,6 @@ def parse_vless(parsed, params):
 
 def parse_vmess(url_str):
     encoded = url_str[len("vmess://"):]
-    # Fix base64 padding
     pad = 4 - len(encoded) % 4
     if pad != 4:
         encoded += "=" * pad
@@ -217,7 +216,6 @@ def parse_hysteria2(parsed, params):
         tls["alpn"] = alpn.split(",")
     outbound["tls"] = tls
 
-    # Obfuscation (optional)
     obfs = params.get("obfs", [""])[0]
     if obfs:
         obfs_pwd = params.get("obfs-password", [""])[0]
@@ -261,12 +259,10 @@ def parse_tuic(parsed, params):
         "congestion_control": params.get("congestion_control", ["bbr"])[0],
     }
 
-    # 处理 URL 编码或未正确切分的 username:password
     user_part = unquote(parsed.username or "")
     pass_part = unquote(parsed.password or "")
 
     if ":" in user_part and not pass_part:
-        # 应对 uuid%3Apassword@host 这种情况
         outbound["uuid"], outbound["password"] = user_part.split(":", 1)
     else:
         outbound["uuid"] = user_part
@@ -324,10 +320,19 @@ def main():
 
     config = {
         "log": {"level": "info", "timestamp": True},
+        "dns": {
+            "servers": [
+                {
+                    "tag": "dns-direct",
+                    "address": "https://1.1.1.1/dns-query",
+                    "detour": "direct"
+                }
+            ]
+        },
         "inbounds": [
             {
-                "type": "http",
-                "tag": "http-in",
+                "type": "mixed",
+                "tag": "mixed-in",
                 "listen": LISTEN_HOST,
                 "listen_port": LISTEN_PORT,
             }
@@ -344,7 +349,7 @@ def main():
     server = outbound.get("server", "N/A")
     port = outbound.get("server_port", "N/A")
     print(f"sing-box config.json generated.")
-    print(f"  Inbound:  http://{LISTEN_HOST}:{LISTEN_PORT}")
+    print(f"  Inbound:  mixed://{LISTEN_HOST}:{LISTEN_PORT}")
     print(f"  Outbound: {outbound['type']} -> {server}:{port}")
 
 

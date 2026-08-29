@@ -36,7 +36,7 @@ jobs:
           MIN=$(echo "$RD" | cut -d: -f1)
           MAX=$(echo "$RD" | cut -d: -f2)
         else
-          MIN=1; MAX=5
+          MIN=7200; MAX=21600
         fi
         DELAY=$(shuf -i $MIN-$MAX -n 1)
         echo "base_delay=$DELAY" >> $GITHUB_OUTPUT
@@ -121,7 +121,13 @@ jobs:
         echo "🔍 验证代理出口..."
         export http_proxy=http://127.0.0.1:8080
         export https_proxy=http://127.0.0.1:8080
-        curl -s --connect-timeout 10 https://api.ipify.org || echo "无法获取出口 IP"
+        IP=$(curl -s --connect-timeout 10 https://api.ipify.org || echo "")
+        if [ -n "$IP" ]; then
+          echo "✅ 代理出口 IP: $IP"
+        else
+          echo "❌ 无法获取出口 IP，输出 sing-box 运行日志："
+          cat singbox.log || true
+        fi
 
     - name: 🛠️ 安装自动化依赖
       run: |
