@@ -321,33 +321,27 @@ def renew(sb) -> bool:
 
     print("点击 Reset Timer 按钮...")
     try:
-        sb.wait_for_element_present('button:contains("Reset timer"), button:contains("Reset Timer")', timeout=8)
-        try:
-            sb.click('button:contains("Reset timer")')
-        except Exception:
-            sb.click('button:contains("Reset Timer")')
-        time.sleep(3)
-    except Exception as e:
-        print(f"尝试 JS 兜底触发 Reset timer: {e}")
-        try:
-            clicked = sb.execute_script("""
+        clicked = sb.execute_script("""
+            (function() {
                 var btns = document.querySelectorAll('button');
                 for (var i = 0; i < btns.length; i++) {
-                    if (btns[i].innerText.toLowerCase().includes('reset timer')) {
+                    var txt = (btns[i].innerText || btns[i].textContent || '').trim().toLowerCase();
+                    if (txt.includes('reset timer') || txt.includes('reset')) {
                         btns[i].click();
                         return true;
                     }
                 }
                 return false;
-            """)
-            if not clicked:
-                raise Exception("页面未找到包含 'Reset timer' 的按钮")
-            time.sleep(3)
-        except Exception as err2:
-            print(f"找不到 Reset Timer 按钮: {err2}")
-            sb.save_screenshot("renew_reset_btn_not_found.png")
-            send_tg_message("[X]", "续期失败(找不到按钮)", "未知")
-            return False
+            })()
+        """)
+        if not clicked:
+            raise Exception("未找到包含 'reset timer' 的按钮")
+        time.sleep(3)
+    except Exception as e:
+        print(f"找不到 Reset Timer 按钮: {e}")
+        sb.save_screenshot("renew_reset_btn_not_found.png")
+        send_tg_message("[X]", "续期失败(找不到按钮)", "未知")
+        return False
 
     print("检查续期弹窗内是否需要 CF 验证...")
     if sb.execute_script(_EXISTS_JS):
@@ -363,13 +357,16 @@ def renew(sb) -> bool:
             sb.click('button:contains("Just Reset")')
         except Exception:
             sb.execute_script("""
-                var btns = document.querySelectorAll('button');
-                for (var i = 0; i < btns.length; i++) {
-                    if (btns[i].innerText.toLowerCase().includes('just reset')) {
-                        btns[i].click();
-                        break;
+                (function() {
+                    var btns = document.querySelectorAll('button');
+                    for (var i = 0; i < btns.length; i++) {
+                        var txt = (btns[i].innerText || btns[i].textContent || '').trim().toLowerCase();
+                        if (txt.includes('just reset')) {
+                            btns[i].click();
+                            break;
+                        }
                     }
-                }
+                })()
             """)
         print("提交续期请求，等待服务器处理...")
         time.sleep(5) 
