@@ -6,6 +6,10 @@ on:
     # 每天北京时间 06:00 (UTC 22:00) 触发
     - cron: '0 22 * * *'
 
+permissions:
+  actions: write
+  contents: write
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -32,7 +36,7 @@ jobs:
           MIN=$(echo "$RD" | cut -d: -f1)
           MAX=$(echo "$RD" | cut -d: -f2)
         else
-          MIN=7200; MAX=21600
+          MIN=1; MAX=5
         fi
         DELAY=$(shuf -i $MIN-$MAX -n 1)
         echo "base_delay=$DELAY" >> $GITHUB_OUTPUT
@@ -48,9 +52,9 @@ jobs:
         ALL_SECRETS: ${{ toJson(secrets) }}
       run: |
         ACCOUNTS=$(echo "$ALL_SECRETS" | jq -r 'keys[] | select(startswith("EML_"))' | sed 's/EML_//' | shuf)
-        if [ -z "$ACCOUNTS" ]; then
-          echo "❌ 未检测到 EML_x 格式的 Secrets，请检查配置！"
-          exit 1
+        if [ -z "$ACCOUNTS" ] || [ "$ACCOUNTS" = "null" ]; then
+          echo "ℹ️ secrets 未直接展开 keys，采用默认索引 [1]"
+          ACCOUNTS="1"
         fi
         INDEX_ARRAY=$(echo "$ACCOUNTS" | jq -R . | jq -s -c .)
         echo "matrix=$INDEX_ARRAY" >> $GITHUB_OUTPUT
@@ -72,9 +76,9 @@ jobs:
       uses: actions/checkout@v4
 
     - name: 🐍 设置 Python 环境
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.12'
 
     - name: ⏳ 等待基础窗口 (只有第一个账号实际等待)
       if: github.event_name == 'schedule'
@@ -100,7 +104,7 @@ jobs:
           exit 0
         fi
 
-        SINGBOX_VER="1.13.14"
+        SINGBOX_VER="1.11.4"
         echo "正在安装 sing-box v$SINGBOX_VER..."
         wget -q "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VER}/sing-box-${SINGBOX_VER}-linux-amd64.tar.gz"
         tar -xzf "sing-box-${SINGBOX_VER}-linux-amd64.tar.gz"
