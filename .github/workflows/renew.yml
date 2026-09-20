@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # 每天北京时间 06:00 (UTC 22:00) 触发
-    - cron: '0 22 * * *'
+   # - cron: '0 22 * * *'
 
 permissions:
   actions: write
